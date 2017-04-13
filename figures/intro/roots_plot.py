@@ -2,6 +2,8 @@
 #
 # M. Zingale (2013-02-14)
 
+from __future__ import print_function
+
 import math
 import numpy
 import matplotlib as mpl
@@ -11,6 +13,8 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 mpl.rcParams['xtick.labelsize'] = 16
 mpl.rcParams['ytick.labelsize'] = 16
+mpl.rcParams['mathtext.fontset'] = 'cm'
+mpl.rcParams['mathtext.rm'] = 'serif'
 
 r = root(f, 1.e-5, fprime=fprime)
 
@@ -32,24 +36,26 @@ for n, x in enumerate(xeval):
 
     plt.scatter(numpy.array(xeval[0:n+1]),
                   r.f(numpy.array(xeval[0:n+1])),
-                  marker="x", s=25, color="r")
+                  marker="x", s=25, color="r", zorder=100)
 
     plt.plot(xfine, r.fprime(x)*(xfine-x) + r.f(x), color="0.5")
 
     xintercept = -r.f(x)/r.fprime(x) + x
-    print "xintercept = ", xintercept
+    print("xintercept = ", xintercept)
     plt.plot([xintercept, xintercept], [0, r.f(xintercept)], color="0.5", ls=":")
 
     if n%2 == 0:
-        plt.text(x, r.f(x)-0.3, `n`, color="r", fontsize="16",
-                   verticalalignment="top", horizontalalignment="center")
+        plt.text(x, r.f(x)-0.3, "{}".format(n), 
+                 color="r", fontsize="16",
+                 verticalalignment="top", horizontalalignment="center", zorder=1000)
     else:
-        plt.text(x, r.f(x)+0.3, `n`, color="r", fontsize="16",
-                   verticalalignment="bottom", horizontalalignment="center")
+        plt.text(x, r.f(x)+0.3, "{}".format(n), 
+                 color="r", fontsize="16",
+                 verticalalignment="bottom", horizontalalignment="center", zorder=1000)
 
     F = plt.gcf()
-    plt.text(0.5, 0.02, "root approx = %s" % (`x`),
-               transform = F.transFigure, color="k", fontsize="16")
+    plt.text(0.4, 0.02, "root approx = {}".format(x), 
+             transform = F.transFigure, color="k", fontsize="16")
 
     # axes through origin
     ax = plt.gca()
@@ -71,14 +77,16 @@ for n, x in enumerate(xeval):
     axins.set_xlim(x1, x2)
     axins.set_ylim(y1, y2)
 
-    plt.xticks(visible=False)
-    plt.yticks(visible=False)
+    plt.tick_params(axis='both', which='major', labelsize=10)
+    plt.tick_params(axis='both', which='minor', labelsize=8)
+    #plt.xticks(visible=False)
+    #plt.yticks(visible=False)
 
     axins.plot(xfine, r.f(xfine))
 
     axins.scatter(numpy.array(xeval[0:n+1]),
                   r.f(numpy.array(xeval[0:n+1])),
-                  marker="x", s=25, color="r")
+                  marker="x", s=25, color="r", zorder=100)
 
     axins.plot(xfine, r.fprime(x)*(xfine-x) + r.f(x), color="0.5")
 
@@ -86,17 +94,19 @@ for n, x in enumerate(xeval):
     axins.plot([xintercept, xintercept], [0, r.f(xintercept)], color="0.5", ls=":")
 
     if n%2 == 0:
-        axins.text(x, r.f(x)-0.05, `n`, color="r", fontsize="10",
+        axins.text(x, r.f(x)-0.05, "{}".format(n), 
+                   color="r", fontsize="10",
                    verticalalignment="top", horizontalalignment="center",
-                   clip_on=True)
+                   clip_on=True, zorder=100)
     else:
-        axins.text(x, r.f(x)+0.05, `n`, color="r", fontsize="10",
+        axins.text(x, r.f(x)+0.05, "{}".format(n), 
+                   color="r", fontsize="10",
                    verticalalignment="bottom", horizontalalignment="center",
-                   clip_on=True)
+                   clip_on=True, zorder=100)
 
     axins.plot(xfine, xfine*0, ls=":", color="0.5")
 
-    mark_inset(ax, axins, loc1=3, loc2=4, fc="none", ec="0.5")
+    mark_inset(ax, axins, loc1=3, loc2=4, fc="none", ec="0.5", zorder=10)
 
 
     f = plt.gcf()
