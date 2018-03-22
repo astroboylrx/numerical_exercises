@@ -11,6 +11,8 @@ mpl.rcParams["text.usetex"] = True
 # load the xfrac package
 mpl.rcParams["text.latex.preamble"].append(r'\usepackage{xfrac}')
 mpl.rcParams["text.latex.preamble"].append(r'\newcommand{\myhalf}{\sfrac{1}{2}}')
+mpl.rcParams["text.latex.preamble"].append(r'\newcommand{\mythreehalf}{\sfrac{3}{2}}')
+mpl.rcParams["text.latex.preamble"].append(r'\newcommand{\myfivehalf}{\sfrac{5}{2}}')
 mpl.rcParams['mathtext.fontset'] = 'cm'
 mpl.rcParams['mathtext.rm'] = 'serif'
 
@@ -183,7 +185,7 @@ class FVGrid(object):
                 nstart = self.ilo
                 nstop = self.ihi
         else:
-            nstart = self.ilo -self.ng
+            nstart = self.ilo - self.ng
             nstop = self.ihi + self.ng
 
 
@@ -208,26 +210,40 @@ class FVGrid(object):
             # emphasize?
             if emphasize_end and n == self.ilo:
                 plt.plot([self.xl[n], self.xl[n]],
-                           [self.voff, grid_top+self.voff], color=color, lw=4)
+                         [self.voff, grid_top+self.voff], color=color, lw=4)
 
             # draw right edge
             if emphasize_end and n == self.ihi:
-                plt.plot([self.xr[n], self.xr[n]], [self.voff, grid_top+self.voff],
-                           color=color, lw=4)
+                plt.plot([self.xr[n], self.xr[n]], 
+                         [self.voff, grid_top+self.voff],
+                         color=color, lw=4)
+
             elif n < nstop or (n == nstop and draw_end):
-                plt.plot([self.xr[n], self.xr[n]], [self.voff, grid_top+self.voff],
-                           color=color, lw=2)
+                plt.plot([self.xr[n], self.xr[n]], 
+                         [self.voff, grid_top+self.voff],
+                         color=color, lw=2)
 
             # draw center marker
-            plt.plot([self.xc[n], self.xc[n]], [-0.05+self.voff, self.voff], color=color)
+            plt.plot([self.xc[n], self.xc[n]], 
+                     [-0.05+self.voff, self.voff], color=color)
 
             # draw edge marker
-            if n == nstart and edge_ticks:
-                plt.plot([self.xl[nstart], self.xl[nstart]], [-0.05+self.voff, self.voff],
-                           color=color)
-
+            
             if edge_ticks:
-                plt.plot([self.xr[n], self.xr[n]], [-0.05+self.voff, self.voff], color=color)
+                if n == nstart:
+                    if emphasize_end:
+                        lw = 4
+                    else:
+                        lw = 2
+                    plt.plot([self.xl[nstart], self.xl[nstart]], 
+                             [-0.05+self.voff, self.voff], color=color, lw=lw)
+
+                if n == nstop and emphasize_end:
+                    lw = 4
+                else:
+                    lw = 2
+                plt.plot([self.xr[n], self.xr[n]], 
+                         [-0.05+self.voff, self.voff], color=color, lw=lw)
 
 
     def label_center(self, idx, string, fontsize="small"):
@@ -236,35 +252,50 @@ class FVGrid(object):
                  horizontalalignment='center', verticalalignment='top',
                  fontsize=fontsize)
 
-    def label_edge(self, idx, string, fontsize="small"):
+    def label_edge(self, idx, string, fontsize="small", right_edge=False):
 
-        plt.text(self.xl[idx], self.voff-0.075, string,
-                 horizontalalignment='center', verticalalignment='top',
-                 fontsize=fontsize)
+        if not right_edge:
+            plt.text(self.xl[idx], self.voff-0.075, string,
+                     horizontalalignment='center', verticalalignment='top',
+                     fontsize=fontsize)
+        else:
+            plt.text(self.xr[idx], self.voff-0.075, string,
+                     horizontalalignment='center', verticalalignment='top',
+                     fontsize=fontsize)
 
-    def label_cell_center(self, idx, string):
+    def label_cell_center(self, idx, string, value=0.5, color="k"):
 
-        plt.text(self.xc[idx], self.voff+0.5, string,
+        plt.text(self.xc[idx], self.voff+value, string,
                  horizontalalignment='center', verticalalignment='center',
-                 fontsize="large")
+                 fontsize="large", color=color)
 
     def mark_cell_left_state(self, idx, string, color="k", value=0.5,
-                             vertical="center", fontsize="medium"):
+                             vertical="center", fontsize="medium", zorder=100):
 
         plt.scatter(self.xl[idx]+0.05*self.dx, self.voff+value, marker="x", color=color)
 
         plt.text(self.xl[idx]+0.075*self.dx, self.voff+value, string,
                  horizontalalignment='left', verticalalignment=vertical, color=color,
-                 fontsize=fontsize)
+                 fontsize=fontsize, zorder=zorder)
+
+    def mark_cell_edge(self, idx, string, color="k", value=0.5,
+                       vertical="center", fontsize="medium"):
+
+        plt.scatter(self.xl[idx], self.voff+value, 
+                    marker="x", color=color, zorder=100)
+
+        plt.text(self.xl[idx]+0.05*self.dx, self.voff+value, string,
+                 horizontalalignment='left', verticalalignment=vertical, 
+                 color=color, fontsize=fontsize)
 
     def mark_cell_right_state(self, idx, string, color="k", value=0.5,
-                              vertical="center", fontsize="medium"):
+                              vertical="center", fontsize="medium", zorder=100):
 
         plt.scatter(self.xr[idx]-0.05*self.dx, self.voff+value, marker="x", color=color)
 
         plt.text(self.xr[idx]-0.075*self.dx, self.voff+value, string,
                  horizontalalignment='right', verticalalignment=vertical, color=color,
-                 fontsize=fontsize)
+                 fontsize=fontsize, zorder=zorder)
 
     def label_dx(self, idx):
         # idx is the right edge of the dx interval drawn
@@ -347,11 +378,14 @@ class PiecewiseConstant(object):
                  horizontalalignment='center', verticalalignment='bottom',
                  fontsize="large", color=color)
 
-    def draw_cell_avg(self, idx, color="0.5", ls="-"):
+    def draw_cell_avg(self, idx, color="0.5", ls="-", filled=False):
         plt.plot([self.gr.xl[idx], self.gr.xr[idx]],
                  [self.gr.voff+self.a[idx]/self.scale, 
                   self.gr.voff+self.a[idx]/self.scale], color=color, ls=ls)
-
+        if filled:
+            plt.fill([self.gr.xl[idx], self.gr.xl[idx], self.gr.xr[idx], self.gr.xr[idx], self.gr.xl[idx]],
+                     [self.gr.voff, self.gr.voff+self.a[idx]/self.scale, 
+                      self.gr.voff+self.a[idx]/self.scale, self.gr.voff, self.gr.voff], color=color, alpha=0.25, ls=ls, zorder=-100)
 
 class PiecewiseLinear(PiecewiseConstant):
     """ piecewise linear data defined on a 1-d finite-volume grid """
@@ -360,6 +394,7 @@ class PiecewiseLinear(PiecewiseConstant):
 
         PiecewiseConstant.__init__(self, gr, a, scale=scale)
 
+        self.fill_zero_gradient()
         self.slope = np.zeros_like(self.a)
         self.nolimit = nolimit
 
@@ -466,6 +501,7 @@ class PiecewiseParabolic(PiecewiseConstant):
         # cubic interpolation through the 4 zones centered on an
         # interface
         self.aint = np.zeros_like(a)
+        self.fill_zero_gradient()
 
         for n in range(1, len(a)-2):
 

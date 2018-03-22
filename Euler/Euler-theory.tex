@@ -31,12 +31,18 @@ choice is the gamma-law EOS:
 p = \rho e(\gamma - 1)
 \end{equation}
 where $\gamma$ is the ratio of specific heats for the gas/fluid (for
-an ideal, monatomic gas, $\gamma = 5/3$), but any relation of the form
-$p = p(\rho, e)$ will work.
+an ideal, monatomic gas, $\gamma = 5/3$), but any relation of the form:
+\begin{equation}
+p = p(\rho, e)
+\end{equation}
+will work.  For many astrophysical environments, we may not be able to
+express this relation analytically, but instead will solve it via
+numerical integration or by interpolating from tabulated results.
 
 For a derivation of the equations of hydrodynamics using moments of
 the Boltzmann equation see \cite{shu,choudhuri}.  For a
-physically-motivated derivation from conservation, see \cite{leveque:2002}.
+physically-motivated derivation from conservation, see
+\cite{choudhuri,leveque:2002}.
 
 In one dimension, they appear as\footnote{assuming Cartesian coordinates}:
 \begin{align}
@@ -132,7 +138,7 @@ An alternate way to express these equations is using the {\em
 \begin{align}
 \ddt{\rho} + u \ddx{\rho} + \rho \ddx{u} &= 0 \\
 \ddt{u} + u \ddx{u} + \frac{1}{\rho} \ddx{p} &= 0 \\
-\ddt{p} + u \ddx{p} + \gamma p \ddx{u} &= 0
+\ddt{p} + u \ddx{p} + \gamma p \ddx{u} &= 0 \label{eq:prim:p}
 \end{align}
 }
 \end{exercise}
@@ -169,7 +175,7 @@ Note that both the conserved Jacobian matrix, $\Ab(\Uc)$, and the
 primitive variable matrix, $\Ab(\qb)$, have the same eigenvalues,
  since they represent the same physics.
 
-In Eq.~\ref{eq:primitivesystem}, we used the algebraic gamma-law
+In Eq.~\ref{eq:prim:p}, we used the algebraic gamma-law
 equation of state to replace $e$ with $p$, however, for a general
 equation of state, we can get the appropriate expression by writing $p
 = p(\rho, s)$:
@@ -243,7 +249,7 @@ $\lb^{(i)} \cdot \rb^{(j)} = \delta_{ij}$.
 }
 \end{exercise}
 A {\sf Jupyter} notebook using {\sf SymPy} that derives these
-eigenvectors is available here:
+eigenvectors is available:
 \hydroexdoit{\href{https://github.com/zingale/hydro_examples/blob/master/compressible/euler.ipynb}{euler.ipynb}}
 \footnote{if you don't have {\sf Jupyter}, you can view this rendered online via the github link.}
 
@@ -378,7 +384,7 @@ correspond to a wave that will move out from the interface with time,
 and each wave will carry with it a jump in the characteristic
 variables.  Figure~\ref{fig:riemann:waves} shows the
 three waves moving out from the interface, separating space into 4
-regions, marked: $L$, $L^*$, $R^*$, and $R$.
+regions, marked: $L$, $L_*$, $R_*$, and $R$.
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{riemann-waves}
@@ -402,6 +408,8 @@ contact.
 The left and right waves can be either a rarefaction or a shock.  It will
 be a shock if the flow is compressing and a rarefaction otherwise.
 
+We already see that the only unknowns are $u_\star$, $p_\star$, $\rho_{\star,L}$,
+and $\rho_{\star,R}$.
 
 \subsection{Rarefactions}
 
@@ -517,30 +525,30 @@ u + \frac{2c}{\gamma - 1} = \mbox{constant} \quad \mbox{across the left rarefact
 
 This allows you to link the state to the left of the rarefaction to the star state:
 \begin{equation}
-u_l + \frac{2c_l}{\gamma - 1} = u_\star + \frac{2c_\star}{\gamma -1}
+u_L + \frac{2c_L}{\gamma - 1} = u_\star + \frac{2c_\star}{\gamma -1}
 \end{equation}
 and
 \begin{equation}
-\frac{p_l}{\rho_l^\gamma} = \frac{p_\star}{\rho_\star^\gamma}
+\frac{p_L}{\rho_L^\gamma} = \frac{p_\star}{\rho_\star^\gamma}
 \end{equation}
 from our constant-entropy equation of state.  Together, show that this
 gives:
 \begin{equation}
-u_{\star,l} = u_l + \frac{2c_l}{\gamma - 1} \left [ 1 - \left ( \frac{p_\star}{p_l}\right )^{(\gamma - 1)/2\gamma} \right ]
+u_{\star,L} = u_L + \frac{2c_L}{\gamma - 1} \left [ 1 - \left ( \frac{p_\star}{p_L}\right )^{(\gamma - 1)/2\gamma} \right ]
 \end{equation}
 A similar construction can be done for the right rarefaction, yielding:
 \begin{equation}
-u_{\star,r} = u_r - \frac{2c_r}{\gamma - 1} \left [ 1 - \left ( \frac{p_\star}{p_r}\right )^{(\gamma - 1)/2\gamma} \right ]
+u_{\star,R} = u_R - \frac{2c_R}{\gamma - 1} \left [ 1 - \left ( \frac{p_\star}{p_R}\right )^{(\gamma - 1)/2\gamma} \right ]
 \end{equation}
 
 \end{exercise}
 
 For a general equation of state, there is not a closed form, but we would need
-to integrate our system to get $u_\star = u(p_\star)$.
+to integrate our system to get $u_\star = u(p_\star)$ and $\rho_{\star,s} = 1/\tau(p_\star)$.
 
 We'll denote the solution across the left rarefaction as $u_\star =
-u_l^{rare}(p_\star)$ and across the right rarefaction as $u_\star =
-u_r^{rare}(p_\star)$.
+u_L^{rare}(p_\star)$ and across the right rarefaction as $u_\star =
+u_R^{rare}(p_\star)$.
 
 \subsection{Shocks}
 
@@ -689,11 +697,14 @@ The one other piece of information we need is the shock speed.  We can
 get this from the mass flux, $W_s$, definition, e.g., $W_L = \rho_L
 \hat{u}_L = \rho_L (u_L - S)$,:
 \begin{equation}
+\label{eq:euler-theory:shockgeneral}
 S = u_s \mp \frac{W_s}{\rho_s} \quad\mbox{`$-$' for left, `+' for right}\\
 \end{equation}
+This procedure gives us $\rho_{\star,s}$, $p_\star$, and $S$, the
+shock speed.
 
-Just as with the rarefaction, considerable simplification can be made if 
-we assume a gamma-law gas.
+Just as with the rarefaction, considerable simplification can be made
+if we assume a gamma-law gas.
 
 \begin{exercise}[Shock jump conditions for $\gamma$-law EOS]
 {
@@ -706,7 +717,7 @@ show that we can express the jump in density in terms of the
 ratio of pressure, $p_\star/p_s$, as:
 \begin{equation}
 \label{eq:euler:shockrhojump}
-\rho_\star = \rho_s \left [ \frac{ \frac{p_\star}{p_s} (\gamma + 1) + (\gamma - 1)}
+\rho_{\star,s} = \rho_s \left [ \frac{ \frac{p_\star}{p_s} (\gamma + 1) + (\gamma - 1)}
    {(\gamma + 1) + \frac{p_\star}{p_s} (\gamma -1)} \right ]
 \end{equation}
 }
@@ -736,20 +747,22 @@ with the `$-$' or the left shock and the `+' for the right shock.
   
 \subsection{Finding the Star State}
 
+\label{Euler:riemann:starstate}
+
 The left and right states are connected to the state in the star
 region by a Hugoniot curve---this is a curve in the $u$-$p$ plane that
 shows all of the possible states one can reach from the current state
 through either a shock or rarefaction.  There are two such curves, one
 corresponding to the left and one to the right state:
 \begin{equation}
-u_{\star,l}(p) = \begin{cases}
-   u_{\star,l}^\mathrm{shock}(p) & p > p_l \\
-   u_{\star,l}^\mathrm{rare}(p) & p \le p_l 
+u_{\star,L}(p) = \begin{cases}
+   u_{\star,L}^\mathrm{shock}(p) & p > p_L \\
+   u_{\star,L}^\mathrm{rare}(p) & p \le p_L 
    \end{cases}
 \qquad
 u_{\star,r}(p) = \begin{cases}
-   u_{\star,r}^\mathrm{shock}(p) & p > p_r \\
-   u_{\star,r}^\mathrm{rare}(p) & p \le p_r 
+   u_{\star,R}^\mathrm{shock}(p) & p > p_R \\
+   u_{\star,R}^\mathrm{rare}(p) & p \le p_R 
    \end{cases}
 \end{equation}
 The solution
@@ -804,6 +817,8 @@ where we are a shock or rarefaction.  Where $p > p_s$, where $s \in {L,R}$, we h
 
 \subsection{Complete Solution}
 
+\label{Euler:riemann:solution}
+
 To complete the solution, we need to find which of the 4 regions, $L,
 L\star, R\star, R$ we fall in.  For hydrodynamics, we are usually
 interested only in the solution on the interface, but we can look
@@ -811,6 +826,7 @@ along any ray in the $x$-$t$ plane by defining $\xi = (x -
 x_\mathrm{interface})/t$.  If the initial discontinuity is on the
 interface, then $\xi = 0$.
 
+% figure from figures/Euler/riemann_cartoon.py
 \begin{figure}
 \centering
 \includegraphics[width=0.49\linewidth]{riemann_waves_ifc_R}
@@ -836,16 +852,87 @@ rarefaction.  To find out which region the interface falls in, we simply
 look at the speeds.  
 
 The first speed to consider is the contact wave, that has a speed of
-simply $S_c = u_\star$.  If $S_c > \xi$, then we are choosing between
-the $L$ and $L_\star$ states (cases c and d in
-Figure~\ref{fig:euler:riemann_sample}).  If $S_c < \xi$, then we are
-choosing between $R$ and $R_\star$ states (cases a and b).
+simply $S_c = u_\star$.  If $S_c < \xi$, then we are choosing between
+$R$ and $R_\star$ states (cases a and b).  If $S_c > \xi$, then we are
+choosing between the $L$ and $L_\star$ states (cases c and d in
+Figure~\ref{fig:euler:riemann_sample})\footnote{for the special case
+  where $S_c = 0$, we usually take the solution to be the average of
+  the $L_\star$ and $R_\star$ states.  Testing for this explicitly
+  rather than using $\ge$ in a check is important for maintaining
+  symmetry (see \S~\ref{sec:euler-methods:shocktubes}).}.
 
-This will leave just a single wave to consider: the right wave for
-cases a and b; and the left wave for cases c and d.  We need the wave
-speed for this---it will depend on whether it is a shock or a
-rarefaction.
+The direction of the contact reduces the problem down to choosing
+between just two regions, either $L$-$L_\star$ or $R$-$R_\star$.  This
+leaves just a single wave to consider: the right wave for cases a and
+b; and the left wave for cases c and d.  We need the wave speed for
+this---it will depend on whether it is a shock or a rarefaction.  
 
+For a shock, the wave speed is given by
+Eq.~\ref{eq:euler-theory:shockgeneral}.  We do the same procedure as
+before.  For example, for cases a and b, we look at $S_R$, the
+right-moving shock speed for the 3-wave.  If $S_R > 0$, then the
+interface is in the $R_\star$ state (case b), while if $S_R < 0$, then
+the interface is in the $R$ state (case a).  A similar process
+holds for the left-moving shock and cases c and d.
+
+For a rarefaction, the
+relevant speeds are the characteristic speeds on either side of the
+rarefaction.  We usually talk about the leading part of the
+rarefaction (the {\em head}) and trailing part (the {\em tail}).  The
+corresponding wave speeds are:
+\begin{itemize}
+\item left (1) rarefaction:
+  \begin{itemize} 
+  \item $\lambda_\mathrm{head} = u_L - c_L$
+  \item $\lambda_\mathrm{tail} = u_\star - c_\star$
+  \end{itemize}
+  
+\item right (3) rarefaction:
+  \begin{itemize} 
+  \item $\lambda_\mathrm{head} = u_R + c_R$
+  \item $\lambda_\mathrm{tail} = u_\star + c_\star$
+  \end{itemize}
+\end{itemize}
+The nature of the rarefaction is such that it spreads out,
+$|\lambda_\mathrm{head}| > |\lambda_\mathrm{tail}|$.  To determine
+which state we are in, we look to see where both the head and tail are
+with respect to the interface.
+Figure~\ref{fig:euler:rarefaction_sample} shows the possibilities for
+a left (1) rarefaction.  In case (a), $\lambda_\mathrm{head},
+\lambda_\mathrm{tail} < 0$, so the $L_\star$ state is on the
+interface.  In case (c), $\lambda_\mathrm{head}, \lambda_\mathrm{tail}
+> 0$, so the $L$ state is on the interface.  Case (b) is more
+complicated---we have $\lambda_\mathrm{head} <0, \lambda_\mathrm{tail}
+> 0$, so the rarefaction spans the interface.  We need to therefore
+solve for the state in the rarefaction itself.
+
+To find the structure inside of a rarefaction, consider some point,
+$(x, t)$, in the $x$-$t$ plane.  For an initial discontinuity at the
+origin, we can imagine a line connecting this point and the origin,
+which has the form:
+\begin{equation}
+\frac{x}{t} = u - c
+\end{equation}
+
+% figure from figures/Euler/rarefaction_cartoon.py
+\begin{figure}
+\centering
+\includegraphics[width=0.6\linewidth]{rarefaction_left} \\
+\includegraphics[width=0.6\linewidth]{rarefaction_center} \\
+\includegraphics[width=0.6\linewidth]{rarefaction_right}
+\caption[Rarefaction configuration for the Riemann problem]
+        {\label{fig:euler:rarefaction_sample} An illustration of the 
+          structure of the left rarefaction wave, for the case
+          where the contact and right wave are to the right of the
+          interface.  Here, we are choosing between states $L$ and $L_\star$.
+          In (a), both the head and tail of the rarefaction are to the 
+          left of the interface, so state $L_\star$ is on the interface.
+          In (c), both the head and tail of the rarefaction are to the 
+          right of the interface, so state $L$ is on the interface.
+          Inbetween, case (b), shows a rarefaction that spans the 
+          interface.  For this case, we need to integrate the Riemann
+          invariants to find the state on the interface.}
+\end{figure}
 
 
 %-----------------------------------------------------------------------------

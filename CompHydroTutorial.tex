@@ -1,5 +1,7 @@
 \documentclass[11pt]{book}
 
+%\usepackage{microtype}
+
 \input conditional.tex
 %\def\debugmode{}
 
@@ -13,13 +15,13 @@
 \DeclareGraphicsExtensions{%
   .pdf, .png}
 
-% Bibliographic Package                                                         
-\usepackage[numbers,sort&compress]{natbib}       
+% Bibliographic Package
+\usepackage[numbers,sort&compress]{natbib}
 
 % code listings
 \usepackage{listings}
 
-\graphicspath{{preface/}{intro/}{finite-volume/}{advection/}{burgers/}{diffusion/}{Euler/}{incompressible/}{multigrid/}{multiphysics/}{low_mach/}{radiation/}{pyro/}}
+\graphicspath{{preface/}{intro/}{finite-volume/}{advection/}{burgers/}{diffusion/}{Euler/}{incompressible/}{multigrid/}{multiphysics/}{low_mach/}{radiation/}{pyro/}{higher-order/}}
 
 \usepackage{longtable}
 
@@ -96,7 +98,6 @@
    {{\partname{}} \thepart}
    {0em}
    {\hrule}
-
 
 
 
@@ -179,6 +180,27 @@
 \thispagestyle{empty}
 \newpage
 \if@twocolumn\hbox{}\newpage\fi\fi\fi}
+\makeatother
+
+
+% no page number of the part page
+% http://latex.org/forum/viewtopic.php?f=47&t=4293&p=16738
+\makeatletter
+\renewcommand\part{%
+   \if@openright
+     \cleardoublepage
+   \else
+     \clearpage
+   \fi
+   \thispagestyle{empty}%
+   \if@twocolumn
+     \onecolumn
+     \@tempswatrue
+   \else
+     \@tempswafalse
+   \fi
+   \null\vfil
+   \secdef\@part\@spart}
 \makeatother
 
 
@@ -336,7 +358,6 @@ keepaspectratio]{images/crop_cover.png}%
 
 \pdfpageattr{/Group <</S /Transparency /I true /CS /DeviceRGB>>}
 
-\newcommand{\imag}{\mathsf{i}}
 
 \input mysymbols
 
@@ -475,14 +496,20 @@ Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA
 \part{Advection and Hydrodynamics}
 
 %\addtocontents{exc}{\protect\addvspace{10pt}}%
-\chapter{Advection}
+\chapter{Advection Basics}
 
-\input advection/advection.tex
+\input advection/advection-basics.tex
+
+\chapter{Second- (and Higher-) Order Advection}
+
+\input advection/advection-higherorder.tex
 
 %\addtocontents{exc}{\protect\addvspace{10pt}}%
 \chapter{Burgers' Equation}
 
 \input burgers/burgers.tex
+
+\input higher-order/higher-order-burgers.tex
 
 %\addtocontents{exc}{\protect\addvspace{10pt}}%
 \chapter{Euler Equations: Theory}
@@ -494,6 +521,7 @@ Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA
 
 \input Euler/Euler-methods.tex
 
+\input higher-order/higher-order-euler.tex
 
 \ifdefined\debugmode
 \chapter{Hydrodynamics Test Problems}
@@ -529,13 +557,19 @@ Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA
 \part{Multiphysics applications}
 
 %\addtocontents{exc}{\protect\addvspace{10pt}}%
-\chapter{Model Problems}
+\chapter{Model Multiphysics Problems}
 
 \input multiphysics/multiphysics.tex
 
 \chapter{Reactive Flow}
 
 \input reactive_flow/reactive_flow.tex
+
+\ifdefined\debugmode
+\chapter{Self-gravity}
+
+\input gravity/gravity.tex
+\fi
 
 \chapter{Planning a Simulation}
 
@@ -561,7 +595,7 @@ Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA
 \input radiation/radiation.tex
 \fi
 
-%\part{Appendices}
+\part{Code Descriptions}
 
 \appendix
 

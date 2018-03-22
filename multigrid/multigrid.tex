@@ -24,46 +24,77 @@ equation (like diffusion) by discretizing in time.
 
 Notice that there is no time-dependence in any of these equations.
 The quantity $\phi$ is specified instantaneously in the domain subject to
-boundary conditions.
+boundary conditions.  This makes the solution methods very different then
+what we saw for hyperbolic problems.
+
 
 \section{\label{elliptic:sec:fft} Fourier Method}
 
-A direct way of solving a constant-coefficient elliptic equation
-is using Fourier transforms.  Using a general Fourier transform
-(which we consider here) works only for periodic boundary conditions,
-but other basis functions can be used for other boundary conditions.
+A direct way of solving a constant-coefficient elliptic equation is
+using Fourier transforms.  Using a general Fourier transform (which we
+consider here) works only for periodic boundary conditions, but other
+basis functions (e.g., all sines or all cosines) can be used for other
+boundary conditions. \MarginPar{ref?}
 
 Consider the Poisson equation:
 \begin{equation}
 \nabla^2 \phi = f
 \end{equation}
-We will difference this in a second-order accurate fashion.  Thinking
-of the Laplacian as $\nabla^2 \phi$ = $\nabla \cdot \nabla \phi$, we
-first compute the gradient of $\phi$ on edges:
+We will difference this in a second-order accurate fashion---see
+Figure~\ref{fig:mg:laplacian}.  
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{laplacian}
+\caption[Data centerings for the discrete Laplacian]{\label{fig:mg:laplacian} The centerings of the first and second
+derivatives for a standard Laplacian discretization.  Our data, $\phi$,
+is cell-centered.  The first-derivatives, $d\phi/dx$, are edge-centered, and the
+second-derivative, $d^2\phi/dx^2$, is cell-centered.}
+\end{figure}
+%
+In 1-d, the Laplacian is just the second-derivative.  If our solution
+is defined at cell-centers, then we first compute the first-derivative
+on cell edges:
+\begin{align}
+\left . \frac{d\phi}{dx} \right |_{i-\myhalf} &= \frac{\phi_i - \phi_{i-1}}{\dx}\\
+\left . \frac{d\phi}{dx} \right |_{i+\myhalf} &= \frac{\phi_{i+1} - \phi_i}{\dx}
+\end{align}
+These are second-order accurate on the interface.  We can then compute
+the second-derivative at the cell-center by differencing these edge values:
 \begin{equation}
-[\nabla \phi \cdot \hat{x}]_{i+1/2,j} = \frac{\phi_{i+1,j} - \phi_{i,j}}{\Delta x}
+\left . \frac{d^2\phi}{dx^2} \right |_i = \frac{ d\phi/dx |_{i+\myhalf} - d\phi/dx |_{i-\myhalf}}{\dx}
 \end{equation}
-Since this is defined on edges, this represents a centered difference, and is
-therefore second-order accurate.  We then difference the edge-centered
-gradients to the center to get the Laplacian at cell-centers:
+
+The extension to 2-d is straightforward.  Thinking of the Laplacian as $\nabla^2
+\phi$ = $\nabla \cdot \nabla \phi$, we first compute the gradient of
+$\phi$ on edges:
+\begin{align}
+[\nabla \phi \cdot \hat{x}]_{i+\myhalf,j} &= \frac{\phi_{i+1,j} - \phi_{i,j}}{\dx} \\
+[\nabla \phi \cdot \hat{y}]_{i,j+\myhalf} &= \frac{\phi_{i,j+1} - \phi_{i,j}}{\dy} 
+\end{align}
+Again, since this is defined on edges, this represents a centered
+difference, and is therefore second-order accurate.  We then
+difference the edge-centered gradients to the center to get the
+Laplacian at cell-centers:
 \begin{align}
 [\nabla^2 \phi]_{i,j} &=
-   \frac{[\nabla \phi \cdot \hat{x}]_{i+1/2,j} -
-         [\nabla \phi \cdot \hat{x}]_{i-1/2,j}}{\Delta x} +
-   \frac{[\nabla \phi \cdot \hat{y}]_{i,j+1/2} -
-         [\nabla \phi \cdot \hat{y}]_{i,j-1/2}}{\Delta y} \nonumber\\
+   \frac{[\nabla \phi \cdot \hat{x}]_{i+\myhalf,j} -
+         [\nabla \phi \cdot \hat{x}]_{i-\myhalf,j}}{\dx} +
+   \frac{[\nabla \phi \cdot \hat{y}]_{i,j+\myhalf} -
+         [\nabla \phi \cdot \hat{y}]_{i,j-\myhalf}}{\dy} \nonumber\\
 %
-  &= \frac{\phi_{i+1,j} - 2\phi_{i,j} + \phi_{i-1,j}}{\Delta x^2} +
-     \frac{\phi_{i,j+1} - 2\phi_{i,j} + \phi_{i,j-1}}{\Delta y^2} = f_{i,j}
+  &= \frac{\phi_{i+1,j} - 2\phi_{i,j} + \phi_{i-1,j}}{\dx^2} +
+     \frac{\phi_{i,j+1} - 2\phi_{i,j} + \phi_{i,j-1}}{\dy^2} = f_{i,j}
 \end{align}        
 Again, since we used a centered-difference of the edge values, this
-expression is second-order accurate.  This is the standard
-{\em 5-point stencil} for the 2-d Laplacian.
+expression is second-order accurate.  This is the standard {\em
+  5-point stencil} for the 2-d Laplacian\footnote{There are other
+  possible second-order accurate stencils, including a 9-point stencil
+  in 2-d, that are less commonly used.}.
 
-We now assume that we have an FFT subroutine that can take our
-discrete real-space data, $\phi_{i,j}$ and return the discrete
-Fourier coefficients, $\Phi_{k_x,k_y}$, and likewise for the source
-term:
+We now assume that we have an FFT subroutine (see
+\S~\ref{sec:intro:ffts}) that can take our discrete real-space data,
+$\phi_{i,j}$ and return the discrete Fourier coefficients,
+$\Phi_{k_x,k_y}$, and likewise for the source term:
 \begin{equation}
 \Phi_{k_x,k_y} = \mathcal{F}(\phi_{i,j}) \quad
 F_{k_x,k_y} = \mathcal{F}(f_{i,j})
@@ -75,7 +106,7 @@ Fourier space straightforward.
 We now express $\phi_{i,j}$ and $f_{i,j}$ as sums over their Fourier
 components.  Here we define $M$ as the number of grid points in the
 $x$-direction and $N$ as the number of grid points in the
-$y$-direction.  Note, because we are using $i$ as the grid index, we
+$y$-direction.  As before, we are using $i$ as the grid index, we
 will use $\imag$ as the imaginary unit:
 \begin{align}
 \phi_{i,j} &= \frac{1}{MN} \sum_{k_x = 0}^{M-1} \sum_{k_y = 0}^{N-1}
@@ -84,15 +115,14 @@ f_{i,j} &= \frac{1}{MN} \sum_{k_x = 0}^{M-1} \sum_{k_y = 0}^{N-1}
   F_{k_x,k_y} e^{2\pi\imag i k_x/M} e^{2\pi\imag j k_y/N} 
 \end{align}
 
-Inserting these into the differenced equation (and dropping the sums
-and normalization, to focus on a single mode), we have:
+Inserting these into the differenced equation, we have:
 \begin{align}
 \frac{1}{MN}\sum_{k_x=0}^{M-1}\sum_{k_y=0}^{N-1}
 \biggl \{
-&\frac{\Phi_{k_x,k_y}}{\Delta x^2} e^{2\pi\imag j k_y/N}
+&\frac{\Phi_{k_x,k_y}}{\dx^2} e^{2\pi\imag j k_y/N}
   \left [ e^{2\pi\imag (i+1) k_x/M} -2 e^{2\pi\imag i k_x/M} +
          e^{2\pi\imag (i-1) k_x/M} \right ] + \nonumber \\
-&\frac{\Phi_{k_x,k_y}}{\Delta y^2} e^{2\pi\imag i k_x/M}
+&\frac{\Phi_{k_x,k_y}}{\dy^2} e^{2\pi\imag i k_x/M}
   \left [ e^{2\pi\imag (j+1) k_y/N} -2 e^{2\pi\imag j k_y/N} +
          e^{2\pi\imag (j-1) k_y/N} \right ] \biggr \} = \nonumber \\
 \frac{1}{MN}\sum_{k_x=0}^{M-1}\sum_{k_y=0}^{N-1}
@@ -104,9 +134,9 @@ then look at just a single $(k_x,k_y)$ term in the series:
 \begin{align}
   e^{2\pi\imag i k_x/M} e^{2\pi\imag j k_y/N}
   \biggl \{
-  &\frac{\Phi_{k_x,k_x}}{\Delta x^2}
+  &\frac{\Phi_{k_x,k_x}}{\dx^2}
   \left [e^{2\pi\imag k_x/M} + e^{-2\pi\imag k_x/M} - 2 \right ] + \nonumber \\
-  &\frac{\Phi_{k_x,k_x}}{\Delta y^2}
+  &\frac{\Phi_{k_x,k_x}}{\dy^2}
   \left [e^{2\pi\imag k_y/N} + e^{-2\pi\imag k_y/N} - 2 \right ] 
   - F_{k_x,k_y}
   \biggr \} = 0
@@ -126,7 +156,7 @@ by doing the inverse transform:
 \end{equation}
 
 
-We test this technique with the source term:
+We can test this technique with the source term:
 \begin{align}
 f =\, & 8\pi^2\cos(4\pi y) \left [\cos(4\pi x) - \sin(4\pi x) \right ] - \nonumber \\
     & 16\pi^2 \left [ \sin(4\pi x)\cos(2\pi y)^2 + \sin(2\pi x)^2 \cos(4\pi y) \right ]
@@ -140,6 +170,7 @@ side}:
 \begin{equation}
 \phi = \sin(2\pi x)^2 \cos(4\pi y) + \sin(4\pi x)\cos(2\pi y)^2
 \end{equation}
+Note that this solution has the required periodic behavior.
 Figure~\ref{fig:mg:fftpoisson} shows the solution.
 
 \begin{figure}[t]
@@ -157,19 +188,18 @@ Figure~\ref{fig:mg:fftpoisson} shows the solution.
 
 
 The main downside of this approach is that, because we solve for a
-single component independently (Eq.~\ref{eq:FFTsol}), this only
-works for linear problems with constant coefficients.  This makes
-it an excellent choice for cosmological problems solving the gravitational
-Poisson equation with periodic boundaries on all sides of the domain.
-However, for a problem
-like:
+single component independently (Eq.~\ref{eq:FFTsol}), this only works
+for linear problems with constant coefficients.  This makes it an
+excellent choice for cosmological problems solving the gravitational
+Poisson equation with periodic boundaries on all sides of the domain
+(see, e.g., \cite{heitmann:2008}).  However, for a problem like:
 \begin{equation}
   \nabla \cdot (\beta \nabla \phi) = f
 \end{equation}
-there would be ``cross-talk'' between the Fourier modes of $\beta$
-and $\phi$, and we would not be able to solve for a single mode
-of $\Phi_{k_x,k_y}$ independently.  We discuss methods for these
-forms next.
+there would be ``cross-talk'' between the Fourier modes of $\beta$ and
+$\phi$, and we would not be able to solve for a single mode of
+$\Phi_{k_x,k_y}$ independently.  We discuss more general methods that
+work for these forms next.
 
 
 \section{Relaxation}
@@ -177,21 +207,17 @@ forms next.
 Relaxation is an iterative technique, and as we will see shortly, it
 provides the basis for the multigrid technique.  
 
-Consider Poisson's equation differenced as:
+Consider Poisson's equation, again differenced as:
 \begin{equation}
-\frac{\phi_{i+1,j} - 2 \phi_{i,j} + \phi_{i-1,j}}{\Delta x^2} +
-\frac{\phi_{i,j+1} - 2 \phi_{i,j} + \phi_{i,j-1}}{\Delta y^2} = f_{i,j}
+\frac{\phi_{i+1,j} - 2 \phi_{i,j} + \phi_{i-1,j}}{\dx^2} +
+\frac{\phi_{i,j+1} - 2 \phi_{i,j} + \phi_{i,j-1}}{\dy^2} = f_{i,j}
 \end{equation}
-This is a 5-point stencil: for each zone $(i,j)$, we couple in the
-zones $\pm 1$ in $x$ and $\pm 1$ in $y$.  This discretization uses
-the standard form for the second derivative, and is second-order
-accurate in space.  
-
-For the moment, consider the case where $\Delta x = \Delta y$.  If we
-solve this discretized equation for $\phi_{i,j}$, then we have:
+For each zone $(i,j)$, we couple in the zones $\pm 1$ in $x$ and $\pm
+1$ in $y$.  For the moment, consider the case where $\dx = \dy$.  If
+we solve this discretized equation for $\phi_{i,j}$, then we have:
 \begin{equation}
 \phi_{i,j} = \frac{1}{4} (\phi_{i+1,j} + \phi_{i-1,j} + 
-                          \phi_{i,j+1} + \phi_{i,j-1} - \Delta x^2 f_{i,j} )
+                          \phi_{i,j+1} + \phi_{i,j-1} - \dx^2 f_{i,j} )
 \end{equation}
 A similar expression exists for every zone in our domain, coupling all
 the zones together.  We can't separate the solution of $\phi_{i,j}$
@@ -199,25 +225,31 @@ for the neighboring zones, but instead can apply an iterative
 technique called {\em relaxation} (also sometimes called {\em
   smoothing} because generally speaking the solution to elliptic
 equations is a smooth function) to find the solution for $\phi$
-everywhere.  Imagine an initial guess to $\phi$: $\phi_{i,j}^{(0)}$.
+everywhere.  
+
+Imagine an initial guess to $\phi$: $\phi_{i,j}^{(0)}$.
 We can improve that guess by using our difference equation to define a
 new value of $\phi$, $\phi_{i,j}^{(1)}$:
 \begin{equation}
 \phi_{i,j}^{(1)} = \frac{1}{4} (\phi_{i+1,j}^{(0)} + \phi_{i-1,j}^{(0)} + 
                                 \phi_{i,j+1}^{(0)} + \phi_{i,j-1}^{(0)} - 
-                                 \Delta x^2 f_{i,j} )
+                                 \dx^2 f_{i,j} )
 \end{equation}
 or generally, the $k+1$ iteration will see:
 \begin{equation}
 \phi_{i,j}^{(k+1)} = \frac{1}{4} (\phi_{i+1,j}^{(k)} + \phi_{i-1,j}^{(k)} + 
                                   \phi_{i,j+1}^{(k)} + \phi_{i,j-1}^{(k)} - 
-                                   \Delta x^2 f_{i,j} )
+                                   \dx^2 f_{i,j} )
 \end{equation}
-This will (slowly) converge to the true solution, since each zone is
-coupled to each other zone (and to the boundary values that we need to
-specify---more on that in a moment).  This form of relaxation is
-called {\em Jacobi iteration}.  To implement this, you need two copies
-of $\phi$---the old iteration value and the new iteration value.
+This will (slowly) converge to the true solution\footnote{Formally,
+  convergence is only guaranteed if the matrix in our linear system is
+  {\em diagonally dominant}.  The Laplacian used here is not quite
+  diagonally domainant, but these methods still converge.}, since each
+zone is coupled to each other zone (and to the boundary values that we
+need to specify---more on that in a moment).  This form of relaxation
+is called {\em Jacobi iteration}.  To implement this, you need two
+copies of $\phi$---the old iteration value and the new iteration
+value.
 
 An alternate way to do the relaxation is to update $\phi_{i,j}$ in
 place, as soon as the new value is known.  Thus the neighboring cells
@@ -226,14 +258,13 @@ updating as:
 \begin{equation}
 \phi_{i,j} \leftarrow \frac{1}{4} (\phi_{i+1,j} + \phi_{i-1,j} + 
                                    \phi_{i,j+1} + \phi_{i,j-1} - 
-                                   \Delta x^2 f_{i,j} )
+                                   \dx^2 f_{i,j} )
 \end{equation}
 This only requires a single copy of $\phi$ to be stored.  This
 technique is called {\em Gauss-Seidel iteration}.  A host of other
 relaxation methods exist, including linear combinations of these two.
-The text by Briggs is an excellent reference for this, and discusses
-the strengths of these different approaches.
-
+An excellent discussion of these approaches, and their
+strengths and weaknesses is given in \cite{multigridtutorial}.
 
 Next consider the Helmholz equation with constant coefficients:
 \begin{equation}
@@ -242,51 +273,53 @@ Next consider the Helmholz equation with constant coefficients:
 We can discretize this as:
 \begin{equation}
 \alpha \phi_{i,j} - \beta \left ( 
-    \frac{\phi_{i+1,j} - 2 \phi_{i,j} + \phi_{i-1,j}}{\Delta x^2} +
-    \frac{\phi_{i,j+1} - 2 \phi_{i,j} + \phi_{i,j-1}}{\Delta y^2} \right )
+    \frac{\phi_{i+1,j} - 2 \phi_{i,j} + \phi_{i-1,j}}{\dx^2} +
+    \frac{\phi_{i,j+1} - 2 \phi_{i,j} + \phi_{i,j-1}}{\dy^2} \right )
 = f_{i,j}
 \end{equation}
 and the update of $\phi_{i,j}$ through relaxation is:
 \begin{equation}
 \phi_{i,j} \leftarrow
-     \left . \left ( f_{i,j} + \frac{\beta}{\Delta x^2} \phi_{i+1,j}
-                             + \frac{\beta}{\Delta x^2} \phi_{i-1,j}
-                             + \frac{\beta}{\Delta y^2} \phi_{i,j+1}
-                             + \frac{\beta}{\Delta y^2} \phi_{i,j-1} \right ) 
-\middle / \left ( \alpha + \frac{2 \beta}{\Delta x^2} + \frac{2 \beta}{\Delta y^2} \right ) \right .
+     \left . \left ( f_{i,j} + \frac{\beta}{\dx^2} \phi_{i+1,j}
+                             + \frac{\beta}{\dx^2} \phi_{i-1,j}
+                             + \frac{\beta}{\dy^2} \phi_{i,j+1}
+                             + \frac{\beta}{\dy^2} \phi_{i,j-1} \right ) 
+\middle / \left ( \alpha + \frac{2 \beta}{\dx^2} + \frac{2 \beta}{\dy^2} \right ) \right .
 \end{equation}
-Notice that if $\alpha = 0$, $\beta = -1$, and $\Delta x = \Delta y$, we 
+Notice that if $\alpha = 0$, $\beta = -1$, and $\dx = \dy$, we 
 recover the relaxation expression for Poisson's equation from above.
 
 
 \subsection{Boundary conditions}
 
 When using a cell-centered grid, no points fall exactly on the
-boundary, so we need to use ghost cells to specify boundary conditions.
-A single ghost cell is sufficient.  The common types of boundary
-conditions are {\em Dirichlet} (specified value on the boundary), {\em
-  Neumann} (specified first derivative on the boundary), and periodic.
-Some restrictions apply.  For example, consider $\phi_{xx} = 0$.  The
-solution to this is a line, $\phi = ax + b$.  We cannot specify different
-Neumann boundary conditions on each end, $\phi_x |_{x=x_l} = p$,
-$\phi_x |_{x = x_r} = q$, because this specifies two incompatible
-slopes for our line.
+boundary, so we need to use ghost cells to specify boundary
+conditions.  A single ghost cell is sufficient for the 5-point stencil
+used here.  The common types of boundary conditions are {\em
+  Dirichlet} (specified value on the boundary), {\em Neumann}
+(specified first derivative on the boundary), and periodic.  Some
+restrictions apply (see discuss this later, in
+\S~\ref{sec:multigrid:solvability}).
 
 % created by figures/multigrid/fv-fd_bnd.py
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{fv-fd_grid_bc}
-\caption[Node-centered vs.\ cell-centered data at boundaries]{\label{fig:bcs} 
+\caption[Node-centered vs.\ cell-centered data at boundaries]{\label{mg:fig:bcs} 
   A node-centered (top) and cell-centered (bottom) finite difference
   grid showing the data and domain boundaries.  Notice that for the 
   cell-centered grid, there is no data point precisely at the boundary.}
 \end{figure}
 
 Consider Dirichlet boundary conditions, specifying values $\phi_l$ on
-the left and $\phi_r$ on the right boundaries.\footnote{If the value, $\phi_l$
-  or $\phi_r$ is zero, we call this a {\em homogeneous boundary condition}.  Otherwise
-  we call it an {\em inhomogeneous boundary condition}}  To second order, we can
-define these via:
+the left and $\phi_r$ on the right boundaries.\footnote{If the value,
+  $\phi_l$ or $\phi_r$ is zero, we call this a {\em homogeneous
+    boundary condition}.  Otherwise we call it an {\em inhomogeneous
+    boundary condition}} We'll label the first zone inside the domain,
+at the left boundary, $\mathrm{lo}$, and the last zone inside the
+domain, at the right boundary, $\mathrm{hi}$---see
+Figure~\ref{mg:fig:bcs}.  To second order, we can average the zone values on 
+either side of the interface to get the boundary condition:
 \begin{eqnarray}
 \phi_l &=& \frac{1}{2} ( \phi_\mathrm{lo} + \phi_\mathrm{lo-1} ) \\
 \phi_r &=& \frac{1}{2} ( \phi_\mathrm{hi} + \phi_\mathrm{hi+1} )
@@ -304,14 +337,14 @@ $\phi_x |_r$ on the right.  We note that a single difference across
 the boundary is second-order accurate on the boundary (it is a
 centered-difference there), so to second-order:
 \begin{eqnarray}
-\phi_x |_l &=& \frac{\phi_\mathrm{lo} - \phi_\mathrm{lo-1}}{\Delta x} \\
-\phi_x |_r &=& \frac{\phi_\mathrm{hi+1} - \phi_\mathrm{hi}}{\Delta x}
+\phi_x |_l &=& \frac{\phi_\mathrm{lo} - \phi_\mathrm{lo-1}}{\dx} \\
+\phi_x |_r &=& \frac{\phi_\mathrm{hi+1} - \phi_\mathrm{hi}}{\dx}
 \end{eqnarray}
 This then tells us that the ghost cells are filled as:
 \begin{eqnarray}
 \label{eq:bc_inhomo_neum}
-\phi_\mathrm{lo-1} &=& \phi_\mathrm{lo} - \Delta x \, \phi_x |_l \\
-\phi_\mathrm{hi+1} &=& \phi_\mathrm{hi} + \Delta x \, \phi_x |_r
+\phi_\mathrm{lo-1} &=& \phi_\mathrm{lo} - \dx \, \phi_x |_l \\
+\phi_\mathrm{hi+1} &=& \phi_\mathrm{hi} + \dx \, \phi_x |_r
 \end{eqnarray}
 
 
@@ -342,8 +375,8 @@ and
 
 We can make $\epsilon^{(r)}$ approach machine precision by performing
 more and more relaxation iterations, but after some point, this will
-no longer improve $\epsilon$.  The only way to improve
-$\epsilon^\mathrm{true}$ is to make $\Delta x$ and $\Delta y$ smaller.
+no longer improve $\epsilon^\mathrm{true}$.  The only way to improve
+$\epsilon^\mathrm{true}$ is to make $\dx$ and $\dy$ smaller.
 In practice we do not know the true solution so we cannot compute
 $\epsilon^\mathrm{true}$ and will instead have to rely on
 $\epsilon^{(r)}$ to monitor our error.
@@ -353,7 +386,7 @@ Note that since our operator is linear,
 L e = L\phi^\mathrm{true} - L\phi = f - L\phi = r
 \end{equation}
 so the error in our solution obeys a Poisson equation with the residual
-as the source.
+as the source---we'll see this in the next section.
 
 \subsection{Norms}
 
@@ -361,7 +394,7 @@ There are several different norms that are typically used in defining
 errors on the grid.  The $L_\infty$ norm (or `inf'-norm) is just the
 maximum error on the grid:
 \begin{equation}
-\|e\|_\infty = \max \{ |e_{i,j}| \}
+\|e\|_\infty = \max_{i,j} \{ |e_{i,j}| \}
 \end{equation}
 This will pick up on local errors.  
 
@@ -372,8 +405,9 @@ The $L_1$ norm and $L_2$ norms are more global.
 \end{eqnarray}
 Generally, the measure in $L_2$ falls between $L_\infty$ and $L_1$.
 Regardless of the norm used, if the problem converges, it should
-converge in all norms.  
-For reference, the BoxLib library uses $L_\infty$ in its multigrid solvers.
+converge in all norms.  For reference, the AMReX
+library\footnote{\url{https://github.com/amrex-codes}} uses $L_\infty$
+in its multigrid solvers.
 
 
 
@@ -392,7 +426,10 @@ For reference, the BoxLib library uses $L_\infty$ in its multigrid solvers.
   \hydroexdoit{\href{https://github.com/zingale/hydro_examples/blob/master/multigrid/smooth.py}{smooth.py}}}
 \end{figure}
 
-Consider the simple Poisson problem on $x \in [0,1]$:
+Consider the simple Poisson problem\footnote{This is the test problem
+  used throughout {\em A Multigrid Tutorial} \cite{multigridtutorial}.
+  We use the same problem here to allow for easy comparison to the
+  discussions in that text.} on $x \in [0,1]$:
 \begin{equation}
 \phi_{xx} = \sin(x), \qquad \phi(0) = \phi(1) = 0
 \end{equation}
@@ -408,11 +445,10 @@ different resolutions.
 
 Notice that the true error stalls at a relatively high value---this is
 the truncation error of the method.  From one resolution to the next,
-the true error changes as $\Delta x^2$, indicating that we are
+the true error changes as $\dx^2$, indicating that we are
 converging as our method should.  No additional amount of smoothing
 will change this---we are getting the best answer to the problem we
 can with our choice of discretization.
-
 In contrast, the residual error decreases to machine precision
 levels---this is indicating that our solution is an exact solution to
 the discrete equation (to roundoff-error).
@@ -420,9 +456,10 @@ In practice, we can only monitor the residual error, not the true
 error, and we hope that small residual error implies a small true
 error.
 
-Figure~\ref{fig:smoothnorms} shows the error
-with respect to the true solution and of the residual for pure smoothing
-in three different norms.
+Figure~\ref{fig:smoothnorms} shows the error with respect to the true
+solution and of the residual for pure smoothing in three different
+norms.  The overall behavior is qualitative similar regardless of the
+choice of norm.
 
 % this figure can be created with figures/multigrid/smooth-separate.py
 \begin{figure}
@@ -430,32 +467,38 @@ in three different norms.
 \includegraphics[width=\linewidth]{smooth-error-norms}
 \caption[Convergence of smoothing in different norms]{\label{fig:smoothnorms} 
   Gauss-Seidel relaxation applied to $\phi_{xx} = \sin(x)$ with
-  $\phi(0) = \phi(1) = 0$.  This is like figure \ref{fig:smooth}, but
+  $\phi(0) = \phi(1) = 0$.  This is like figure \ref{fig:smootherror}, but
   now we show the error in 3 different norms: $L_1$, $L_2$, and $L_\infty$.
   \\ \hydroexdoit{\href{https://github.com/zingale/hydro_examples/blob/master/multigrid/smooth-norms.py}{smooth-norms.py}}}
 \end{figure}
 
+To demonstrate the influence of the boundary conditions,
 Figure~\ref{fig:smooth-badbcs} shows the norm of the true error for
-the same problem, but this time with a naive implementation of the 
-boundary conditions (simply initializing the ghost cell to the boundary
-value, instead of averaging to the interface).  We see that with this
-mistake at the boundaries, the error of the entire solution is 
-affected, and we get only first-order convergence with resolution
-(this can be seen by looking at the spacing of the curves).  The previous
-solution, with the correct BCs is shown for reference, and shows 
-second-order convergence.  It is important to note that because every
-zone is linked to every other zone (and the boundary) in elliptic
-problems, an error at the boundary pollutes the global solution.
+the same problem, but this time with a naive implementation of the
+boundary conditions---simply initializing the ghost cell to the
+boundary value, instead of averaging to the interface:
+\begin{align}
+\phi_\mathrm{lo-1} &= \phi_\mathrm{lo} \\
+\phi_\mathrm{hi+1} &= \phi_\mathrm{hi} 
+\end{align}
+We see that with this mistake at the boundaries, the error of the
+entire solution is affected, and we get only first-order convergence
+with resolution (this can be seen by looking at the spacing of the
+curves).  The previous solution, with the correct BCs is shown for
+reference, and shows second-order convergence.  It is important to
+note that because every zone is linked to every other zone (and the
+boundary) in elliptic problems, an error at the boundary can pollute the
+global solution.
 
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{smooth-badBCs}
 \caption[Convergence of smoothing in first-order BCs]{\label{fig:smooth-badbcs} 
-  The same problem as in figure \ref{fig:smooth}, but
-  now we done with a naive first-order boundary conditions (just initializing
-  the ghost cell to the boundary value; dotted lines).  We see that this 
+  The same problem as in figure \ref{fig:smootherror}, but
+  now we done with a naive first-order boundary conditions---just initializing
+  the ghost cell to the boundary value (solid lines).  We see that this 
   achieves only first-order convergence in the true error.  The correct
-  second-order implmentation is shown as the solid lines.
+  second-order implmentation is shown as the dotted lines.
   \\ \hydroexdoit{\href{https://github.com/zingale/hydro_examples/blob/master/multigrid/smooth-badbcs.py}{smooth-badbcs.py}}}
 \end{figure}
 
@@ -463,25 +506,41 @@ problems, an error at the boundary pollutes the global solution.
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.8\linewidth]{smooth-multimode}
-\caption[Smoothing of different wavenumbers]{\label{fig:smooth} Error
-  in the solution to $\phi'' = 0$ given an initial guess with 3
-  different wavenumbers of noise.  The different curves are different
-  numbers of smoothing iterations. \\
-  \hydroexdoit{\href{https://github.com/zingale/hydro_examples/blob/master/multigrid/smooth-modes.py}{smooth-modes.py}}}
+\caption[Smoothing of different wavenumbers]{\label{fig:mg:smooth}
+  Error in the solution to $\phi'' = 0$ given an initial guess with 3
+  different wavenumbers of noise.  A 128 zone grid was used.  The
+  different curves are different numbers of smoothing
+  iterations. \\ \hydroexdoit{\href{https://github.com/zingale/hydro_examples/blob/master/multigrid/smooth-modes.py}{smooth-modes.py}}}
 \end{figure}
+
+\subsection{Frequency/wavelength-dependent error}
 
 We can think of the error in the solution as a superposition of high
 (short) and low (long) frequency (wavelength) modes.  Smoothing works
-really well to eliminate the short wavelength noise quickly (as the
-exercise shows), but many iterations are needed to remove the long
-wavelength noise (see Figure~\ref{fig:smooth}).  Here the wavelength
-is in terms of the number of zones across the feature, and not a
-physical measure.  
+really well to eliminate the short wavelength noise quickly, but many
+iterations are needed to remove the long wavelength noise (see
+Figure~\ref{fig:smooth}).  A very important concept to understand here
+is that when we talk about long wavelength error, we are expressing it
+in terms of the number of zones across the feature, not as physical
+length.  We can get an intuitive feel for this behavior by thinking
+about how smoothing works.  Every zone is coupled to every other zone,
+and we can think about each zone seeing one more zone away for each
+iteration.  When the error is short wavelength, that means that there
+are only a few zones across it, and after a few iterations, all of the
+zones have seen the short wavelength error, and can eliminate it.  For
+a very long wavelength error, many iterations will be needed until the
+smoothing couples one zone to another that is a wavelength away.
+
+This behavior suggests that if we could represent our problem on a
+coarser grid, the error will now be of shorter wavelength, and
+smoothing will be more efficient.  This is the core idea behind
+multigrid, which we see next.
 
 \begin{exercise}[Smoothing the 1-d Laplace equation]
 {Implement 1-d smoothing for the Laplace equation on
   cc-grid.  Use an initial guess for the solution:
   \begin{equation}
+    \label{eq:mg:phimodes}
   \phi_0(x) = \frac{1}{3} ( \sin(2\pi x) + \sin(2\pi \, 8 x) + \sin(2\pi \, 16 x) )
   \end{equation}
   on a 128 zone grid with Dirichlet boundary conditions.  This initial
@@ -492,61 +551,109 @@ physical measure.
 }
 \end{exercise}
 
-This behavior suggests that if we could represent our
-problem on a coarser grid, the error will now be of shorter
-wavelength, and smoothing will be more efficient.  This is the core
-idea behind multigrid.
-
-
+Figure~\ref{fig:mg:smooth} illustrates this behavior.  We are solving
+the Laplace equation, $\phi^{\prime\prime} = 0$ in 1-d on $[0,1]$ with
+homogeneous Dirichlet boundary conditions.  The solution is simply
+$\phi = 0$.  We use Eq.~\ref{eq:mg:phimodes} as an initial guess---this is a superposition
+of 3 different modes.  We see that the after just a few iterations, the 
+shortest wavelength mode, $\sin(2\pi 16x)$ is no longer apparent in the error,
+and just the two longer wavelength modes dominate.  By 100 iterations,
+the error appears to be only due to the longest wavelength mode, $\sin(2\pi x)$.
+Even after 1000 iterations, we still see this mode in the error.  This 
+demonstrates that the longest wavelength modes in the error take the
+longest to smooth away.
 
 \section{Multigrid}
 
 The text {\em A Multigrid Tutorial}~\cite{multigridtutorial} provides
 an excellent introduction to the mechanics of multigrid.  The
 discussion here differs mainly in that we are dealing with
-cell-centered/finite-volume data.  The basic idea of multigrid\footnote{
-In these discussions, we use {\em multigrid} to mean {\em geometric multigrid},
-where the coarsening is done to the grid geometry directly.  The alternative
-is {\em algebraic multigrid}, where it is the structure of the matrix 
-in the linear system itself that is coarsened.}   is to
-smooth a little on the current grid solving $L\phi = f$, compute the
-residual, $r$, then {\em restrict} $r$ to a coarser grid and smooth on
-that grid solving $Le = r$, restrict again, $\ldots$.  Once you reach
-a sufficiently coarse grid, the problem solved exactly.  Then the data
-is moved up to the finer grids, a process called {\em prolongation}.
-The error on the coarse grid, $e$, is prolonged to the finer grid.
-This error is then used to correct the solution on the finer grid,
-some smoothing is done, and then the data is prolonged up again.
+cell-centered/finite-volume data.  We already saw that the treatment
+of boundary conditions is more complicated because we do not have a
+point directly on the boundary.  The other complication comes in
+transferring the data from a fine grid to a coarser grid, and back.
+Before we discuss the multigrid technique, we'll understand how
+the operations between grids work.
 
-Note: on the coarse grids, you are not solving the original system,
-but rather an error equation.  If the boundary conditions in the
-original system are inhomogeneous, the boundary conditions for the
-error equations are now homogeneous.  This must be understood by
-any ghost cell filling routines.
-
-There are many different forms of the multigrid process.  The simplest 
-is called the {\em V-cycle}.  Here you start of the fine grid, restrict
-down to the coarsest, solve, and then prolong back up to the finest. 
-The flow looks like a `V'.  You continue with additional V-cycles
-until the residual error is smaller than your tolerance.
 
 \subsection{Prolongation and restriction on cell-centered grids}
 
 Multigrid relies on transferring the problem up and down a hierarchy of
-grids.  Consider the following grid.  The finer grid is superposed over
-the center coarse cell, and the fine grid cells are marked in red.
+grids. 
+The process of moving the data from the fine grid to the coarse grid
+is called {\em restriction}.  The reverse process, moving data from
+the coarse grid to the fine grid is called {\em prolongation}.  If the
+data on our grid is a conserved quantity, we want restriction and prolongation to
+conserve the amount of stuff when transitioning data between the fine and coarse grids.
+
+
+\subsubsection{1-d}
+
+Consider a 1-d finite-volume/cell-centered finite-difference grid
+shown in Figure~\ref{fig:mg:1dgrid-prolong}---we see a fine grid and the
+corresponding coarser grid.
+%
+% this figure can be created by figures/multigrid/fvrestrict.py
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\linewidth]{fvrestrict}
+\caption[The geometry for 1-d
+  prolongation and restriction]{\label{fig:mg:1dgrid-prolong} A fine grid and
+  corresponding underlying coarse grid.}
+\end{figure}
+%
+If $\phi$ represents a density, then
+conservation requires:
+\begin{equation}
+\phi^c_j = \frac{1}{\dx^c} (\dx^f \phi^f_i + \dx^f \phi^f_{i+1} )
+\end{equation}
+or, for a jump in 2 in resolution ($\dx^c = 2 \dx^f$), 
+\begin{equation}
+\phi^c_j = \frac{1}{2} (\phi^f_i + \phi^f_{i+1} )
+\end{equation}
+This latter form appears as a simple average to the interface of the
+two fine cells / center of the corresponding coarse cell.
+
+The simplest type of 
+prolongation is simply {\em direct injection}:
+\begin{align}
+\phi^f_i &= \phi^c_j \\
+\phi^f_{i+1} &= \phi^c_j 
+\end{align}
+A higher-order method is to do linear reconstruction of the coarse
+data and then average under the profile, e.g., 
+\begin{equation}
+\phi(x) = \frac{\phi^c_{i+1} - \phi^c_{i-1}}{2\dx^c} (x - x_i^c) + \phi_i^c
+\end{equation}
+
+To second-order, we can find the values of $\phi^f_i$ and
+$\phi^f_{i+1}$  by evaluating $\phi(x)$ at the $x$-coordinate corresponding to their
+cell-centers,
+\begin{align}
+x^f_i &= x^c_j - \frac{\dx^c}{4} \\
+x^f_{i+1} &= x^c_j + \frac{\dx^c}{4}
+\end{align}
+giving
+\begin{align}
+\phi^f_i     &= \phi^c_i - \frac{1}{8} (\phi^c_{i+1} - \phi^c_{i-1}) \\
+\phi^f_{i+1} &= \phi^c_i + \frac{1}{8} (\phi^c_{i+1} - \phi^c_{i-1}) 
+\end{align}
+Notice that this is conservative, since $\dx^f (\phi^f_i + \phi^f_{i+1}) = \dx^c \phi^c_j$.
+
+\subsubsection{2-d}
 
 % this figure can be created by figures/multigrid/2dgrid-mg.py
-\begin{figure}[h]
+\begin{figure}[t]
 \centering
-\includegraphics[width=4.0in]{2dgrid-prolong}
+\includegraphics[width=0.8\linewidth]{2dgrid-prolong}
 \caption[The geometry for 2-d
-  prolongation]{\label{fig:2dgrid-prolong} Four fine cells and the
+  prolongation and restriction]{\label{fig:2dgrid-prolong} Four fine cells and the
   underlying coarse grid.  For prolongation, the fine cells in red are
   initialized from a coarse parent.  The gray coarse cells are used in
   the reconstruction of the coarse data.  For restriction, the fine
   cells are averaged to the underlying coarse cell.}
 \end{figure}
+
 
 Restriction from the fine grid to the coarse grid is straightforward.
 Since the fine cells are perfectly enclosed by a single coarse cell,
@@ -560,8 +667,8 @@ Prolongation requires us to reconstruct the coarse data and use
 this reconstruction to determine what the fine cell values are.  For
 instance, a linear reconstruction of the coarse data in $x$ and $y$ is:
 \begin{equation}
-\phi(x,y) = \frac{m_x}{\Delta x} (x - x_i^c) + 
-            \frac{m_y}{\Delta y} (y - y_j^c) + \phi_{i,j}^c
+\phi(x,y) = \frac{m_x}{\dx^c} (x - x_i^c) + 
+            \frac{m_y}{\dy^c} (y - y_j^c) + \phi_{i,j}^c
 \end{equation}
 with slopes:
 \begin{eqnarray}
@@ -574,8 +681,8 @@ $\phi_{i,j}^c$ in that cell (this means that our interpolant is
 conservative).  We can evaluate the value in the fine cells by
 evaluating $\phi(x,y)$ at the center of the fine cells,
 \begin{eqnarray}
-x_\pm^f &=& x_i^c \pm \frac{\Delta x^c}{4} \\
-y_\pm^f &=& y_j^c \pm \frac{\Delta y^c}{4} \\
+x_\pm^f &=& x_i^c \pm \frac{\dx^c}{4} \\
+y_\pm^f &=& y_j^c \pm \frac{\dy^c}{4} \\
 \end{eqnarray}
 This gives
 \begin{equation}
@@ -587,6 +694,38 @@ the fine cell.)
 There are other options for prolongation and restriction, both of
 higher and lower order accuracy.  However, the methods above seem to
 work well.
+
+
+\subsection{Multigrid cycles}
+
+The basic idea of
+multigrid\footnote{ In these discussions, we use {\em multigrid} to
+  mean {\em geometric multigrid}, where the coarsening is done to the
+  grid geometry directly.  The alternative is {\em algebraic
+    multigrid}, where it is the structure of the matrix in the linear
+  system itself that is coarsened.}  is to smooth a little on the
+current grid solving $L\phi = f$, compute the residual, $r$, then {\em
+  restrict} $r$ to a coarser grid and smooth on that grid solving $Le
+= r$, restrict again, $\ldots$.  Once you reach a sufficiently coarse
+grid, the problem solved exactly.  Then the data is moved up to the
+finer grids, a process called {\em prolongation}.  The error on the
+coarse grid, $e$, is prolonged to the finer grid.  This error is then
+used to correct the solution on the finer grid, some smoothing is
+done, and then the data is prolonged up again.
+
+Note: on the coarse grids, you are not solving the original system,
+but rather an error equation.  If the boundary conditions in the
+original system are inhomogeneous, the boundary conditions for the
+error equations are now homogeneous.  This must be understood by
+any ghost cell filling routines.
+
+There are many different forms of the multigrid process.  The simplest 
+is called the {\em V-cycle}.  Here you start of the fine grid, restrict
+down to the coarsest, solve, and then prolong back up to the finest. 
+The flow looks like a `V'.  You continue with additional V-cycles
+until the residual error is smaller than your tolerance.
+
+
 
 \subsection{Bottom solver}
 
@@ -628,6 +767,44 @@ Implementing these boundary conditions in your multigrid solver means
 that you will have separate actions for the fine level (where
 inhomogeneous boundaries may apply) and the coarser levels (where you
 will always be homogeneous).
+
+An alternate way to enforce boundary conditions is via {\em boundary
+  charges}.  For inhomogeneous boundary conditions, boundary charges
+can be used to convert the BCs to homogeneous BCs.  This has the
+advantage of allowing the ghost cell filling routines only deal with
+the homogeneous case.
+
+Consider the one-dimensional Poisson equation, near the left boundary
+our discretized equation appears as:
+\begin{equation}
+\frac{\phi_\mathrm{lo-1} - 2\phi_\mathrm{lo} + \phi_\mathrm{lo+1}}{\dx^2}
+ = f_\mathrm{lo}
+\end{equation}
+Inhomogeneous BCs at the left boundary would give the condition:
+\begin{equation}
+\phi_\mathrm{lo-1} = 2 \phi_l - \phi_\mathrm{lo}
+\end{equation}
+Substituting this into the discrete equation, we have:
+\begin{equation}
+\frac{2 \phi_l - \phi_\mathrm{lo} - 2\phi_\mathrm{lo} + \phi_\mathrm{lo+1}}{\dx^2}
+ = f_\mathrm{lo}
+\end{equation}
+Bringing the boundary condition value over to the RHS, we see
+\begin{equation}
+\frac{- 3\phi_\mathrm{lo} + \phi_\mathrm{lo+1}}{\dx^2}
+ = f_\mathrm{lo} - \frac{2\phi_l}{\dx^2}
+\end{equation}
+Now the left side looks precisely like the differenced Poisson equation
+with homogeneous Dirichlet BCs.  The RHS has an additional `charge' that
+captures the boundary value.  By modifying the source term, $f$, in the
+multigrid solver to include this charge, we can use the homogeneous 
+ghost cell filling routines throughout the multigrid algorithm.
+This technique is discussed a bit in~\cite{colellanotes}.
+
+Note that the form of the boundary charge will depend on the form of the
+elliptic equation---the expressions derived above apply only for
+$\nabla^2 \phi = f$.
+
 
 
 
@@ -683,33 +860,8 @@ second-order convergence for our implementation.
 \end{figure}
 
 
-\section{Going Further}
-
-\label{sec:multigrid:other}
-
-\subsection{Red-black Ordering}
-
-When using domain decomposition to spread the problem across parallel
-processors, the smoothing is often done as {\em red-black
-  Gauss-Seidel}.  In this ordering, you imagine the grid to be a
-checkerboard (see Figure~\ref{fig:rb}).  In the first Gauss-Seidel
-pass you update the red squares and in the second, the black squares.
-The advantage is that when updating the red, you can be sure that none
-of the zones you depend on (the neighboring black zones) will change.
-This makes the decomposition parallel.  Note: this works for the
-standard 5-point Laplacian.  If you are doing some other operator with
-a different stencil, then this decomposition may no longer hold.
-
-% this figure can be created by figures/multigrid/red_black.py
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.6\linewidth]{rb}
-  \caption[Red-black ordering of zones]
-{\label{fig:rb} The red-black ordering of zones.}
-\end{figure}
-
-
-\subsection{Solvability}
+\section{Solvability}
+\label{sec:multigrid:solvability}
 
 For $\nabla^2 \phi = f$ with periodic or
 Neumann boundaries all around, the sum of $f$ must equal $0$
@@ -751,43 +903,33 @@ enforce that $f$ integrate to zero numerically to test convergence.
 This is discussed in \S~\ref{sec:lm:periodicbcs}.
 
 
-\subsection{Boundary charges}
 
-For inhomogeneous boundary conditions, {\em boundary charges} can be
-used to convert the BCs to homogeneous BCs.  This has the advantage of
-allowing the ghost cell filling routines only deal with the
-homogeneous case.
+\section{Going Further}
 
-Consider the one-dimensional Poisson equation, near the left boundary
-our discretized equation appears as:
-\begin{equation}
-\frac{\phi_\mathrm{lo-1} - 2\phi_\mathrm{lo} + \phi_\mathrm{lo+1}}{\Delta x^2}
- = f_\mathrm{lo}
-\end{equation}
-Inhomogeneous BCs at the left boundary would give the condition:
-\begin{equation}
-\phi_\mathrm{lo-1} = 2 \phi_l - \phi_\mathrm{lo}
-\end{equation}
-Substituting this into the discrete equation, we have:
-\begin{equation}
-\frac{2 \phi_l - \phi_\mathrm{lo} - 2\phi_\mathrm{lo} + \phi_\mathrm{lo+1}}{\Delta x^2}
- = f_\mathrm{lo}
-\end{equation}
-Bringing the boundary condition value over to the RHS, we see
-\begin{equation}
-\frac{- 3\phi_\mathrm{lo} + \phi_\mathrm{lo+1}}{\Delta x^2}
- = f_\mathrm{lo} - \frac{2\phi_l}{\Delta x^2}
-\end{equation}
-Now the left side looks precisely like the differenced Poisson equation
-with homogeneous Dirichlet BCs.  The RHS has an additional `charge' that
-captures the boundary value.  By modifying the source term, $f$, in the
-multigrid solver to include this charge, we can use the homogeneous 
-ghost cell filling routines throughout the multigrid algorithm.
-This technique is discussed a bit in~\cite{colellanotes}.
+\label{sec:multigrid:other}
 
-Note that the form of the boundary charge will depend on the form of the
-elliptic equation---the expressions derived above apply only for
-$\nabla^2 \phi = f$.
+\subsection{Red-black Ordering}
+
+When using domain decomposition to spread the problem across parallel
+processors, the smoothing is often done as {\em red-black
+  Gauss-Seidel}.  In this ordering, you imagine the grid to be a
+checkerboard (see Figure~\ref{fig:rb}).  In the first Gauss-Seidel
+pass you update the red squares and in the second, the black squares.
+The advantage is that when updating the red, you can be sure that none
+of the zones you depend on (the neighboring black zones) will change.
+This makes the decomposition parallel.  Note: this works for the
+standard 5-point Laplacian.  If you are doing some other operator with
+a different stencil, then this decomposition may no longer hold.
+
+% this figure can be created by figures/multigrid/red_black.py
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.6\linewidth]{rb}
+  \caption[Red-black ordering of zones]
+{\label{fig:rb} The red-black ordering of zones.}
+\end{figure}
+
+
 
 
 
